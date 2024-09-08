@@ -5,7 +5,9 @@ import org.proleesh.entity.Video;
 import org.proleesh.playload.CustomMessage;
 import org.proleesh.services.VideoService;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -110,7 +112,7 @@ public class VideoController {
 
         String[] ranges = range.replace("bytes=", "").split("-");
         rangeStart = Long.parseLong(ranges[0]);
-        if(range.length() > 1){
+        if(ranges.length > 1){
             rangeEnd = Long.parseLong(ranges[1]);
         }else{
             rangeEnd = fileLength - 1;
@@ -130,7 +132,20 @@ public class VideoController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
 
+        long contentLength = rangeEnd - rangeStart + 1;
 
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.add("Content-Range", "bytes=" + rangeStart + "-" + rangeEnd + "/" + fileLength);
+        httpHeaders.add("Cache-Control", "no-cache");
+        httpHeaders.add("Pragma", "no-cache");
+        httpHeaders.add("Expires", "0");
+        httpHeaders.add("X-Content-Type-Options", "nosniff");
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .headers(httpHeaders)
+                .contentType(MediaType.parseMediaType(contentType))
+                .body(new InputStreamResource(inputStream));
     }
 
 
