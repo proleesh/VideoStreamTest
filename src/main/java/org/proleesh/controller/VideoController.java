@@ -112,6 +112,8 @@ public class VideoController {
 
         String[] ranges = range.replace("bytes=", "").split("-");
         rangeStart = Long.parseLong(ranges[0]);
+
+
         if(ranges.length > 1){
             rangeEnd = Long.parseLong(ranges[1]);
         }else{
@@ -121,6 +123,9 @@ public class VideoController {
         if(rangeEnd > fileLength - 1){
             rangeEnd = fileLength - 1;
         }
+
+        System.out.println("RangeStart: " + rangeStart);
+        System.out.println("RangeEnd: " + rangeEnd);
 
         InputStream inputStream;
 
@@ -134,12 +139,15 @@ public class VideoController {
 
         long contentLength = rangeEnd - rangeStart + 1;
 
+
+
         HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.add("Content-Range", "bytes=" + rangeStart + "-" + rangeEnd + "/" + fileLength);
-        httpHeaders.add("Cache-Control", "no-cache");
+        httpHeaders.add("Content-Range", "bytes " + rangeStart + "-" + rangeEnd + "/" + fileLength);
+        httpHeaders.add("Cache-Control", "no-cache, no-store, must-revalidate");
         httpHeaders.add("Pragma", "no-cache");
         httpHeaders.add("Expires", "0");
         httpHeaders.add("X-Content-Type-Options", "nosniff");
+        httpHeaders.setContentLength(contentLength);
 
         return ResponseEntity
                 .status(HttpStatus.OK)
