@@ -5,6 +5,7 @@ import org.proleesh.AppConstants;
 import org.proleesh.entity.Video;
 import org.proleesh.playload.CustomMessage;
 import org.proleesh.services.VideoService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.InputStreamResource;
@@ -171,6 +172,28 @@ public class VideoController {
     // serve hls playlist
     // master .m3u8 file
 
+    @Value("${file.video.hls}")
+    private String HLS_DIR;
+
+    @GetMapping("/{videoId}/master.m3u8")
+    public ResponseEntity<Resource> serverMasterFile(
+            @PathVariable String videoId
+    ){
+        Path path = Paths.get(HLS_DIR, videoId, "master.m3u8");
+
+        System.out.println(path);
+
+        if(!Files.exists(path)){
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+
+        Resource resource = new FileSystemResource(path);
+        return ResponseEntity.ok()
+                .header(
+                        HttpHeaders.CONTENT_TYPE, "application/vnd.apple.mpegurl"
+                )
+                .body(resource);
+    }
 
 
 
