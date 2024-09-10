@@ -3,6 +3,7 @@ package org.proleesh.services;
 import org.proleesh.entity.Video;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Path;
 import java.util.List;
 
 public interface VideoService {
@@ -17,4 +18,7 @@ public interface VideoService {
     Video getByTitle(String title);
 
     List<Video> getAllVideos();
+
+    // video processing
+    String processVideo(String videoId);
 }

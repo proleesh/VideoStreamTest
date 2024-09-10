@@ -26,16 +26,27 @@ public class VideoServiceImpl implements VideoService {
     @Value("${files.video}")
     String DIR;
 
-    private final VideoRepository videoRepository;;
+    @Value("${file.video.hls}")
+    String HLS_DIR;
+
+    private final VideoRepository videoRepository;
+    ;
 
     @PostConstruct
-    public void init(){
+    public void init() {
         File file = new File(DIR);
 
-        if(!file.exists()){
+
+        try {
+            Files.createDirectories(Paths.get(HLS_DIR));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        if (!file.exists()) {
             boolean mkdir = file.mkdir();
             System.out.println("풀더 생성: " + mkdir);
-        }else{
+        } else {
             System.out.println("풀더 이미 생성");
         }
     }
@@ -67,10 +78,21 @@ public class VideoServiceImpl implements VideoService {
             video.setContentType(contentType);
             video.setFilePath(path.toString());
 
+
+            // metadata save
+            Video savedVideo = videoRepository.save(video);
+
+            // processing video
+            processVideo(savedVideo.getVideoId());
+
+            // delete actual video file and database entry if exception
+
+
+
             return videoRepository.save(video);
 
             // metadata save
-        }catch(IOException e) {
+        } catch (IOException e) {
             e.printStackTrace();
             return null;
         }
@@ -91,4 +113,64 @@ public class VideoServiceImpl implements VideoService {
     public List<Video> getAllVideos() {
         return videoRepository.findAll();
     }
+
+    @Override
+    public String processVideo(String videoId) {
+
+        Video video = this.get(videoId);
+        String filepath = video.getFilePath();
+
+        Path videoPath = Paths.get(filepath);
+
+        String output360p = HLS_DIR + videoId + "/360p/";
+        String output720p = HLS_DIR + videoId + "/720p/";
+        String output1080p = HLS_DIR + videoId + "/1080p/";
+
+
+
+        try {
+            Files.createDirectories(Paths.get(output360p));
+            Files.createDirectories(Paths.get(output720p));
+            Files.createDirectories(Paths.get(output1080p));
+
+            Path outputPath = Paths.get(HLS_DIR, videoId);
+            Files.createDirectories(outputPath);
+
+            String ffmpegCmd = String.format(
+                    "ffmpeg -i \"%s\" -c:v libx264 -c:a aac -strict -2 -f hls -hls_time 10 -hls_list_size 0 -hls_segment_filename \"%s/segment_%%3d.ts\"  \"%s/master.m3u8\" ",
+                    videoPath, HLS_DIR, HLS_DIR
+            );
+
+            //ffmpeg command
+//            StringBuilder ffmpegCmd = new StringBuilder();
+//            ffmpegCmd.append("ffmpeg -i")
+//                    .append(videoPath.toString())
+//                    .append(" -c:v libx264 -c:a aac").append(" ")
+//                    .append("-map 0:v -map 0:a -s:v:0 640x360 -b:v:0 800k")
+//                    .append("-map 0:v -map 0:a -s:v:1 1280x720 -b:v:1 2800k")
+//                    .append("-map 0:v -map 0:a -s:v:2 1920x1080 -b:v:2 5000k")
+//                    .append("-var_stream_map \"v:0,a:0 v:1,a:0 v:2,a:0\" ")
+//                    .append("-master_pl_name ").append(HLS_DIR).append(videoId).append("/master.m3u8 ")
+//                    .append("-f hls -hls_time 10 -hls_list_size 0 ")
+//                    .append("-hls_segment_filename \"").append(HLS_DIR).append(videoId).append("/v%v/fileSequence%d.ts\" ")
+//                    .append("\"").append(HLS_DIR).append(videoId).append("/v%v/prog_index.m3u8\"");
+            System.out.println(ffmpegCmd);
+            //file this command
+            ProcessBuilder processBuilder = new ProcessBuilder("/bin/bash", "-c", ffmpegCmd);
+            processBuilder.inheritIO();
+            Process process = processBuilder.start();
+            int exit = process.waitFor();
+            if (exit != 0) {
+                throw new RuntimeException("video processing failed!!");
+            }
+
+            return videoId;
+        } catch (IOException e) {
+            throw new RuntimeException("Video processing fail: " + e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
 }

@@ -168,6 +168,10 @@ public class VideoController {
 
 
     }
+    // serve hls playlist
+    // master .m3u8 file
+
+
 
 
 
