@@ -8,7 +8,6 @@ import org.proleesh.services.VideoService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -32,22 +31,23 @@ import java.util.UUID;
 public class VideoController {
 
     private final VideoService videoService;
+
     @PostMapping
     public ResponseEntity<?> create(
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title,
             @RequestParam("description") String description
-     ){
-        Video video =  new Video();
+    ) {
+        Video video = new Video();
         video.setTitle(title);
         video.setDescription(description);
         video.setVideoId(UUID.randomUUID().toString());
         Video savedVideo = videoService.save(video, file);
 
-        if(savedVideo != null){
+        if (savedVideo != null) {
             return ResponseEntity.status(HttpStatus.OK)
                     .body(video);
-        }else{
+        } else {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(CustomMessage.builder()
                             .message("동영상 업로드 안함")
@@ -59,13 +59,13 @@ public class VideoController {
     @GetMapping("/stream/{videoId}")
     public ResponseEntity<Resource> stream(
             @PathVariable String videoId
-    ){
+    ) {
         Video video = videoService.get(videoId);
         String contentType = video.getContentType();
         String filePath = video.getFilePath();
         Resource resource = new FileSystemResource(filePath);
 
-        if(contentType == null){
+        if (contentType == null) {
             contentType = "application/octet-stream";
         }
 
@@ -76,7 +76,7 @@ public class VideoController {
     }
 
     @GetMapping
-    public List<Video> getAll(){
+    public List<Video> getAll() {
         return videoService.getAllVideos();
     }
 
@@ -86,7 +86,7 @@ public class VideoController {
             @PathVariable String videoId,
             @RequestHeader(value = "Range", required = false) String range
 
-    ){
+    ) {
         System.out.println(range);
 
         Video video = videoService.get(videoId);
@@ -96,13 +96,13 @@ public class VideoController {
 
         String contentType = video.getContentType();
 
-        if(contentType == null){
+        if (contentType == null) {
             contentType = "application/octet-stream";
         }
 
         long fileLength = path.toFile().length();
 
-        if(range == null){
+        if (range == null) {
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(contentType))
                     .body(resource);
@@ -118,7 +118,7 @@ public class VideoController {
 
         rangeEnd = rangeStart + AppConstants.CHUNK_SIZE - 1;
 
-        if(rangeEnd >= fileLength){
+        if (rangeEnd >= fileLength) {
             rangeEnd = fileLength - 1;
         }
 
@@ -137,12 +137,12 @@ public class VideoController {
 
         InputStream inputStream;
 
-        try{
+        try {
             inputStream = Files.newInputStream(path);
             inputStream.skip(rangeStart);
             long contentLength = rangeEnd - rangeStart + 1;
 
-            byte[] data = new byte[(int)contentLength];
+            byte[] data = new byte[(int) contentLength];
             int read = inputStream.read(data, 0, data.length);
             System.out.println("read(number of bytes): " + read);
             HttpHeaders httpHeaders = new HttpHeaders();
@@ -159,13 +159,9 @@ public class VideoController {
                     .contentType(MediaType.parseMediaType(contentType))
                     .body(new ByteArrayResource(data));
 
-        }catch(IOException e){
+        } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-
-
-
-
 
 
     }
@@ -178,12 +174,12 @@ public class VideoController {
     @GetMapping("/{videoId}/master.m3u8")
     public ResponseEntity<Resource> serverMasterFile(
             @PathVariable String videoId
-    ){
+    ) {
         Path path = Paths.get(HLS_DIR, videoId, "master.m3u8");
 
         System.out.println(path);
 
-        if(!Files.exists(path)){
+        if (!Files.exists(path)) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
 
@@ -195,7 +191,22 @@ public class VideoController {
                 .body(resource);
     }
 
-
+    // serve the segments
+    @GetMapping("/{videoId}/{segment}.ts")
+    public ResponseEntity<Resource> serveSegment(
+            @PathVariable String videoId,
+            @PathVariable String segment
+    ) {
+        Path path = Paths.get(HLS_DIR, videoId, segment + ".ts");
+        if (!Files.exists(path)) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        Resource resource = new FileSystemResource(path);
+        return ResponseEntity.ok()
+                .header(
+                        HttpHeaders.CONTENT_TYPE
+                ).body(resource);
+    }
 
 
 }
